@@ -1,0 +1,153 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int     @id @default(autoincrement())
+  number    String  @unique
+  email     String? @unique
+  name      String
+  password  String
+
+  wallet Wallet?
+
+  sentTransactions     Transaction[] @relation("Sender")
+  receivedTransactions Transaction[] @relation("Receiver")
+
+  bankAccount BankAccount?
+
+  onRampTransactions  OnRampTransaction[]
+  offRampTransactions OffRampTransaction[]
+  merchantTransactions MerchantTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OffRampTransaction {
+  id        Int             @id @default(autoincrement())
+  token     String          @unique
+  amount    Int
+  provider  String
+  status    OffRampStatus
+  startTime DateTime        @default(now())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+}
+
+model Wallet {
+  id Int @id @default(autoincrement())
+  
+  balance  Int @default(10000)
+
+  user User @relation(fields: [userId], references: [id])
+  userId Int @unique
+}
+
+model Transaction {
+  id         Int @id @default(autoincrement())
+
+  amount     Int
+  note       String?
+  category   String?
+
+  senderId   Int
+  receiverId Int
+
+  sender   User @relation("Sender", fields: [senderId], references: [id])
+  receiver User @relation("Receiver", fields: [receiverId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Merchant {
+  id            Int      @id @default(autoincrement())
+  businessName  String
+  ownerName     String
+  balance Int   @default(100000)
+  email         String   @unique
+  phone         String   @unique
+  password      String
+
+  authType      AuthType @default(CREDENTIALS)
+
+  merchantTransactions MerchantTransaction[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model MerchantTransaction {
+  id         Int      @id @default(autoincrement())
+  transactionId String            @unique
+  amount     Int
+  merchantId Int
+  note          String?
+  customerId Int?
+  createdAt  DateTime @default(now())
+
+  status TransactionStatus @default(PENDING)
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+  customer User?     @relation(fields: [customerId], references: [id])
+}
+
+model OnRampTransaction {
+  id        Int          @id @default(autoincrement())
+  token     String       @unique
+  amount    Int
+  provider  String
+  status    OnRampStatus
+  startTime DateTime     @default(now())
+
+  userId    Int
+  user      User         @relation(fields: [userId], references: [id])
+}
+
+model BankAccount {
+  id        Int    @id @default(autoincrement())
+  userId    Int    @unique
+
+  accountNumber String @unique
+  balance   Int @default(50000)
+
+  bankName  String @default("HDFC")
+
+  user      User @relation(fields: [userId], references: [id])
+}
+
+enum OnRampStatus {
+  Processing
+  Success
+  Failure
+}
+
+enum OffRampStatus {
+  Processing
+  Success
+  Failure
+}
+
+enum AuthType {
+  CREDENTIALS
+  GOOGLE
+  GITHUB
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
